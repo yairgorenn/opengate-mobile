@@ -18,6 +18,8 @@ class _GateScreenState extends State<GateScreen> {
   bool _busy = false;
   String? _info;
   Timer? _pollTimer;
+  Timer? _messageClearTimer;
+
   DateTime? _pollStart;
   static const int _pollIntervalSeconds = 2;
   static const int _pollTimeoutSeconds = 30;
@@ -25,6 +27,7 @@ class _GateScreenState extends State<GateScreen> {
   @override
   void dispose() {
   _stopPolling();
+  _messageClearTimer?.cancel();
   super.dispose();
   }
 
@@ -38,6 +41,17 @@ class _GateScreenState extends State<GateScreen> {
     _pollTimer = null;
     _pollStart = null;
     }
+  void _scheduleMessageClear() {
+  _messageClearTimer?.cancel();
+
+  _messageClearTimer = Timer(const Duration(seconds: 10), () {
+    if (!mounted) return;
+    setState(() {
+      _info = null;
+    });
+  });
+}
+  
   void _startPolling() {
   _stopPolling();
   _pollStart = DateTime.now();
@@ -54,8 +68,9 @@ class _GateScreenState extends State<GateScreen> {
         _stopPolling();
         setState(() {
           _busy = false;
-          _info = 'No response from server (timeout)';
+          _info = 'הפתיחה נכשלה';
         });
+        _scheduleMessageClear();
         return;
       }
 
@@ -67,7 +82,7 @@ class _GateScreenState extends State<GateScreen> {
         if (status == 'pending') {
           // ממשיכים
           setState(() {
-            _info = 'Opening gate...';
+            _info = 'פותח את השער';
           });
           return;
         }
@@ -76,8 +91,9 @@ class _GateScreenState extends State<GateScreen> {
           _stopPolling();
           setState(() {
             _busy = false;
-            _info = 'Gate opened';
+            _info = 'השער נפתח';
           });
+          _scheduleMessageClear();
           return;
         }
 
@@ -85,8 +101,9 @@ class _GateScreenState extends State<GateScreen> {
           _stopPolling();
           setState(() {
             _busy = false;
-            _info = 'Gate open failed';
+            _info = 'הפתיחה נכשלה';
           });
+          _scheduleMessageClear();
           return;
         }
 
@@ -103,16 +120,18 @@ class _GateScreenState extends State<GateScreen> {
         _stopPolling();
         setState(() {
           _busy = false;
-          _info = 'Unknown status: $status';
+          _info = 'הפתיחה נכשלה';
         });
+        _scheduleMessageClear();
       } catch (e) {
         if (!mounted) return;
         // במקרה של שגיאת רשת בזמן polling - עוצרים ומציגים
         _stopPolling();
         setState(() {
           _busy = false;
-          _info = 'Communication error while polling';
+          _info = 'הפתיחה נכשלה';
         });
+        _scheduleMessageClear();
       }
     },
   );
@@ -143,7 +162,7 @@ Future<void> _loadGates() async {
       }
 
       setState(() {
-        _error = 'Failed to load gates';
+        _error = 'שגיאה בטעינת שערים';
         _loading = false;
       });
     }
@@ -155,7 +174,7 @@ Future<void> _onOpenGate(String gate) async {
 
   setState(() {
     _busy = true;
-    _info = 'Sending open command...';
+    _info = 'שולח פקודת פתיחה...';
   });
 
   final prefs = await SharedPreferences.getInstance();
@@ -176,37 +195,20 @@ Future<void> _onOpenGate(String gate) async {
 
     if (!mounted) return;
     setState(() {
-      _info = 'Opening gate...';
+      _info = 'פותח שער...';
     });
 
     _startPolling();
-  } catch (e) {
-    if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
 
-    final s = e.toString();
-    String msg = 'Server error';
-
-    if (s.contains('INVALID_TOKEN')) {
-      msg = 'Invalid token';
       setState(() {
         _busy = false;
-        _info = msg;
+        _info = 'הפתיחה נכשלה';
       });
-      Navigator.pushReplacementNamed(context, '/token');
-      return;
-    } else if (s.contains('FORBIDDEN')) {
-      msg = 'Not allowed for this gate';
-    } else if (s.contains('DEVICE_BUSY')) {
-      msg = 'Device busy';
-    } else if (s.contains('NETWORK_ERROR')) {
-      msg = 'Communication error';
+      _scheduleMessageClear();
     }
 
-    setState(() {
-      _busy = false;
-      _info = msg;
-    });
-  }
 }
 
 
