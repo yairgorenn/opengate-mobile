@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../config/gate_labels.dart';
+import 'dart:async';
 
 class GateScreen extends StatefulWidget {
   const GateScreen({super.key});
@@ -14,14 +15,110 @@ class _GateScreenState extends State<GateScreen> {
   bool _loading = true;
   String? _error; 
   List<String> _gates = [];
+  bool _busy = false;
+  String? _info;
+  Timer? _pollTimer;
+  DateTime? _pollStart;
+  static const int _pollIntervalSeconds = 2;
+  static const int _pollTimeoutSeconds = 30;
+
+  @override
+  void dispose() {
+  _stopPolling();
+  super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     _loadGates();
   }
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _pollStart = null;
+    }
+  void _startPolling() {
+  _stopPolling();
+  _pollStart = DateTime.now();
 
-  Future<void> _loadGates() async {
+  _pollTimer = Timer.periodic(
+    const Duration(seconds: _pollIntervalSeconds),
+    (_) async {
+      if (!mounted) return;
+
+      // Timeout מקומי
+      final start = _pollStart!;
+      final elapsed = DateTime.now().difference(start).inSeconds;
+      if (elapsed >= _pollTimeoutSeconds) {
+        _stopPolling();
+        setState(() {
+          _busy = false;
+          _info = 'No response from server (timeout)';
+        });
+        return;
+      }
+
+      try {
+        final status = await ApiService.getStatus();
+
+        if (!mounted) return;
+
+        if (status == 'pending') {
+          // ממשיכים
+          setState(() {
+            _info = 'Opening gate...';
+          });
+          return;
+        }
+
+        if (status == 'opened') {
+          _stopPolling();
+          setState(() {
+            _busy = false;
+            _info = 'Gate opened';
+          });
+          return;
+        }
+
+        if (status == 'failed') {
+          _stopPolling();
+          setState(() {
+            _busy = false;
+            _info = 'Gate open failed';
+          });
+          return;
+        }
+
+        if (status == 'ready') {
+          _stopPolling();
+          setState(() {
+            _busy = false;
+            _info = null;
+          });
+          return;
+        }
+
+        // סטטוס לא מוכר - מפסיקים כדי לא להיתקע
+        _stopPolling();
+        setState(() {
+          _busy = false;
+          _info = 'Unknown status: $status';
+        });
+      } catch (e) {
+        if (!mounted) return;
+        // במקרה של שגיאת רשת בזמן polling - עוצרים ומציגים
+        _stopPolling();
+        setState(() {
+          _busy = false;
+          _info = 'Communication error while polling';
+        });
+      }
+    },
+  );
+}
+
+Future<void> _loadGates() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
@@ -52,6 +149,67 @@ class _GateScreenState extends State<GateScreen> {
     }
   }
 
+
+Future<void> _onOpenGate(String gate) async {
+  if (_busy || _pollTimer != null) return;
+
+  setState(() {
+    _busy = true;
+    _info = 'Sending open command...';
+  });
+
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+
+  if (token == null || token.isEmpty) {
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _info = 'No token';
+    });
+    Navigator.pushReplacementNamed(context, '/token');
+    return;
+  }
+
+  try {
+    await ApiService.openGate(token: token, gate: gate);
+
+    if (!mounted) return;
+    setState(() {
+      _info = 'Opening gate...';
+    });
+
+    _startPolling();
+  } catch (e) {
+    if (!mounted) return;
+
+    final s = e.toString();
+    String msg = 'Server error';
+
+    if (s.contains('INVALID_TOKEN')) {
+      msg = 'Invalid token';
+      setState(() {
+        _busy = false;
+        _info = msg;
+      });
+      Navigator.pushReplacementNamed(context, '/token');
+      return;
+    } else if (s.contains('FORBIDDEN')) {
+      msg = 'Not allowed for this gate';
+    } else if (s.contains('DEVICE_BUSY')) {
+      msg = 'Device busy';
+    } else if (s.contains('NETWORK_ERROR')) {
+      msg = 'Communication error';
+    }
+
+    setState(() {
+      _busy = false;
+      _info = msg;
+    });
+  }
+}
+
+
   AppBar _buildAppBar(BuildContext context) {
     return AppBar(
       title: const Text('Gates'),
@@ -59,10 +217,13 @@ class _GateScreenState extends State<GateScreen> {
         IconButton(
           icon: const Icon(Icons.key),
           tooltip: 'Change token',
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/token');
-          },
+          onPressed: _busy
+              ? null
+              : () {
+                  Navigator.pushReplacementNamed(context, '/token');
+                },
         ),
+
       ],
     );
   }
@@ -79,17 +240,24 @@ class _GateScreenState extends State<GateScreen> {
       body = Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          children: _gates.map((gate) {
-            final label = gateLabels[gate] ?? gate;
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: ElevatedButton(
-                onPressed: () {},
-                child: Text(label),
-              ),
-            );
-          }).toList(),
+  children: [
+    if (_info != null) ...[
+      Text(_info!),
+      const SizedBox(height: 12),
+    ],
+    ..._gates.map((gate) {
+      final label = gateLabels[gate] ?? gate;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: ElevatedButton(
+          onPressed: _busy ? null : () => _onOpenGate(gate),
+          child: Text(label),
         ),
+      );
+    }).toList(),
+  ],
+),
+
       );
     }
 
