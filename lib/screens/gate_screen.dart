@@ -12,7 +12,7 @@ class GateScreen extends StatefulWidget {
 
 class _GateScreenState extends State<GateScreen> {
   bool _loading = true;
-  String? _error;
+  String? _error; 
   List<String> _gates = [];
 
   @override
@@ -52,23 +52,31 @@ class _GateScreenState extends State<GateScreen> {
     }
   }
 
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      title: const Text('Gates'),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.key),
+          tooltip: 'Change token',
+          onPressed: () {
+            Navigator.pushReplacementNamed(context, '/token');
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    Widget body;
+
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_error != null) {
-      return Scaffold(
-        body: Center(child: Text(_error!)),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Gates')),
-      body: Padding(
+      body = const Center(child: CircularProgressIndicator());
+    } else if (_error != null) {
+      body = Center(child: Text(_error!));
+    } else {
+      body = Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: _gates.map((gate) {
@@ -82,7 +90,12 @@ class _GateScreenState extends State<GateScreen> {
             );
           }).toList(),
         ),
-      ),
+      );
+    }
+
+    return Scaffold(
+      appBar: _buildAppBar(context),
+      body: body,
     );
   }
 }

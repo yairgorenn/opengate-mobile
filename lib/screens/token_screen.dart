@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 
 class TokenScreen extends StatefulWidget {
   const TokenScreen({super.key});
@@ -10,25 +11,77 @@ class TokenScreen extends StatefulWidget {
 
 class _TokenScreenState extends State<TokenScreen> {
   final TextEditingController _controller = TextEditingController();
-  bool _saving = false;
+  bool _loading = false;
+  String? _error;
 
-  Future<void> _saveAndContinue() async {
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingToken();
+  }
+
+  Future<void> _loadExistingToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token != null) {
+      _controller.text = token;
+    }
+  }
+
+  Future<void> _saveAndValidate() async {
     final token = _controller.text.trim();
     if (token.isEmpty) return;
 
-    setState(() => _saving = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
+    try {
+      // אימות מול השרת
+      await ApiService.getAllowedGates(token);
+
+      // אם הצליח – שומרים
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', token);
+
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, '/gates');
+    } catch (e) {
+  String message;
+
+  final error = e.toString();
+
+  if (error.contains('INVALID_TOKEN')) {
+    message = 'Token לא תקין';
+  } else if (error.contains('NETWORK_ERROR')) {
+    message = 'שגיאת תקשורת עם השרת';
+  } else {
+    message = 'שגיאה כללית';
+  }
+
+  setState(() {
+    _error = message;
+    _loading = false;
+  });
+}
+
+  }
+
+  Future<void> _clearToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('token', token);
+    await prefs.remove('token');
+    _controller.clear();
 
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/gates');
+    setState(() {
+      _error = null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Enter Token')),
+      appBar: AppBar(title: const Text('Token')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -39,12 +92,22 @@ class _TokenScreenState extends State<TokenScreen> {
                 labelText: 'OpenGate Token',
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            if (_error != null)
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            const SizedBox(height: 12),
             ElevatedButton(
-              onPressed: _saving ? null : _saveAndContinue,
-              child: _saving
+              onPressed: _loading ? null : _saveAndValidate,
+              child: _loading
                   ? const CircularProgressIndicator()
                   : const Text('Save & Continue'),
+            ),
+            TextButton(
+              onPressed: _clearToken,
+              child: const Text('Clear Token'),
             ),
           ],
         ),

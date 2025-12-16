@@ -6,8 +6,9 @@ class ApiService {
       'https://opengatesserver-production.up.railway.app';
 
   static Future<List<String>> getAllowedGates(String token) async {
-    final uri = Uri.parse('$baseUrl/allowed_gates?token=$token');
+  final uri = Uri.parse('$baseUrl/allowed_gates?token=$token');
 
+  try {
     final response = await http.get(uri);
 
     if (response.statusCode == 200) {
@@ -19,6 +20,18 @@ class ApiService {
       throw Exception('INVALID_TOKEN');
     }
 
-    throw Exception('SERVER_ERROR');
+    throw Exception('SERVER_ERROR_${response.statusCode}');
+  } on Exception catch (e) {
+    // אם זו שגיאה שאנחנו זרקנו בעצמנו – מעבירים הלאה
+    if (e.toString().contains('INVALID_TOKEN') ||
+        e.toString().contains('SERVER_ERROR')) {
+      rethrow;
+    }
+
+    // אחרת – זו באמת שגיאת רשת
+    throw Exception('NETWORK_ERROR');
   }
+}
+
+
 }
