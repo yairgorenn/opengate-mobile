@@ -4,6 +4,8 @@ import '../services/api_service.dart';
 import '../config/gate_labels.dart';
 import 'dart:async';
 
+enum StatusType { info, success, error }
+
 class GateScreen extends StatefulWidget {
   const GateScreen({super.key});
 
@@ -19,6 +21,8 @@ class _GateScreenState extends State<GateScreen> {
   String? _info;
   Timer? _pollTimer;
   Timer? _messageClearTimer;
+  StatusType? _statusType;
+
 
   DateTime? _pollStart;
   static const int _pollIntervalSeconds = 2;
@@ -44,10 +48,11 @@ class _GateScreenState extends State<GateScreen> {
   void _scheduleMessageClear() {
   _messageClearTimer?.cancel();
 
-  _messageClearTimer = Timer(const Duration(seconds: 10), () {
+  _messageClearTimer = Timer(const Duration(seconds: 3), () {
     if (!mounted) return;
     setState(() {
       _info = null;
+      _statusType = StatusType.info;
     });
   });
 }
@@ -69,6 +74,7 @@ class _GateScreenState extends State<GateScreen> {
         setState(() {
           _busy = false;
           _info = 'הפתיחה נכשלה';
+          _statusType = StatusType.error;
         });
         _scheduleMessageClear();
         return;
@@ -83,6 +89,7 @@ class _GateScreenState extends State<GateScreen> {
           // ממשיכים
           setState(() {
             _info = 'פותח את השער';
+            _statusType = StatusType.info;
           });
           return;
         }
@@ -92,6 +99,7 @@ class _GateScreenState extends State<GateScreen> {
           setState(() {
             _busy = false;
             _info = 'השער נפתח';
+            _statusType = StatusType.success;
           });
           _scheduleMessageClear();
           return;
@@ -102,6 +110,7 @@ class _GateScreenState extends State<GateScreen> {
           setState(() {
             _busy = false;
             _info = 'הפתיחה נכשלה';
+            _statusType = StatusType.error;
           });
           _scheduleMessageClear();
           return;
@@ -112,6 +121,8 @@ class _GateScreenState extends State<GateScreen> {
           setState(() {
             _busy = false;
             _info = null;
+            _statusType = null;
+
           });
           return;
         }
@@ -121,6 +132,7 @@ class _GateScreenState extends State<GateScreen> {
         setState(() {
           _busy = false;
           _info = 'הפתיחה נכשלה';
+          _statusType = StatusType.error;
         });
         _scheduleMessageClear();
       } catch (e) {
@@ -130,6 +142,7 @@ class _GateScreenState extends State<GateScreen> {
         setState(() {
           _busy = false;
           _info = 'הפתיחה נכשלה';
+          _statusType = StatusType.error;
         });
         _scheduleMessageClear();
       }
@@ -175,6 +188,8 @@ Future<void> _onOpenGate(String gate) async {
   setState(() {
     _busy = true;
     _info = 'שולח פקודת פתיחה...';
+    _statusType = StatusType.info;
+
   });
 
   final prefs = await SharedPreferences.getInstance();
@@ -185,6 +200,7 @@ Future<void> _onOpenGate(String gate) async {
     setState(() {
       _busy = false;
       _info = 'No token';
+      _statusType = StatusType.error;
     });
     Navigator.pushReplacementNamed(context, '/token');
     return;
@@ -196,6 +212,7 @@ Future<void> _onOpenGate(String gate) async {
     if (!mounted) return;
     setState(() {
       _info = 'פותח שער...';
+      _statusType = StatusType.info;
     });
 
     _startPolling();
@@ -205,6 +222,7 @@ Future<void> _onOpenGate(String gate) async {
       setState(() {
         _busy = false;
         _info = 'הפתיחה נכשלה';
+        _statusType = StatusType.error;
       });
       _scheduleMessageClear();
     }
@@ -243,29 +261,132 @@ Future<void> _onOpenGate(String gate) async {
         padding: const EdgeInsets.all(16),
         child: Column(
   children: [
-    if (_info != null) ...[
-      Text(_info!),
-      const SizedBox(height: 12),
-    ],
-    ..._gates.map((gate) {
-      final label = gateLabels[gate] ?? gate;
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: ElevatedButton(
-          onPressed: _busy ? null : () => _onOpenGate(gate),
-          child: Text(label),
+    if (_info != null && _statusType != null)
+  SizedBox(
+    width: double.infinity,
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      decoration: BoxDecoration(
+        color: _statusType == StatusType.info
+            ? const Color(0xFFFFEB3B) // צהוב חזק
+            : _statusType == StatusType.success
+                ? const Color(0xFF81C784) // ירוק
+                : const Color(0xFFE53935), // אדום
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        _info!,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: 'Tahoma',
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: _statusType == StatusType.info
+              ? const Color(0xFF1565C0) // כחול
+              : _statusType == StatusType.success
+                  ? Colors.black
+                  : Colors.white,
         ),
-      );
-    }).toList(),
+      ),
+    ),
+  ),
+
+
+    ..._gates.map((gate) {
+  final label = gateLabels[gate] ?? gate;
+
+  return Padding(
+  padding: const EdgeInsets.symmetric(vertical: 8),
+  child: SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      onPressed: _busy ? null : () => _onOpenGate(gate),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1565C0),
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        textStyle: const TextStyle(
+          fontFamily: 'Tahoma',
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        disabledBackgroundColor: Colors.white54,
+        disabledForegroundColor: Colors.blueGrey,
+      ),
+      child: Text(label),
+    ),
+  ),
+);
+
+}).toList(),
+
   ],
 ),
 
       );
     }
 
-    return Scaffold(
-      appBar: _buildAppBar(context),
-      body: body,
-    );
+   return Directionality(
+  textDirection: TextDirection.rtl,
+  child: Scaffold(
+    backgroundColor: const Color(0xFF1565C0),
+    appBar: null,
+    body: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 16),
+
+            Row(
+  children: [
+    IconButton(
+      icon: const Icon(Icons.key),
+      color: Colors.white,
+      iconSize: 28,
+      tooltip: 'החלפת טוקן',
+      onPressed: _busy
+          ? null
+          : () {
+              Navigator.pushReplacementNamed(context, '/token');
+            },
+    ),
+
+    Expanded(
+      child: Text(
+        'בחירת שער',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontFamily: 'Tahoma',
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    ),
+
+    // Spacer כדי לשמור על מרכז אמיתי
+    const SizedBox(width: 48),
+  ],
+),
+
+
+            const SizedBox(height: 16),
+
+            const SizedBox(height: 16),
+
+            Expanded(child: body),
+          ],
+        ),
+      ),
+    ),
+  ),
+);
+
+
   }
 }

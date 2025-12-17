@@ -52,6 +52,10 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+  fonts:
+    - family: Tahoma
+      fonts:
+        - asset: assets/fonts/Tahoma.ttf
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -88,3 +92,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+assets:
+  - assets/fonts/
