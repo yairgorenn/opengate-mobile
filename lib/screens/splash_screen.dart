@@ -12,10 +12,15 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _decideRoute();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+    _start();
+  });
   }
 
-  Future<void> _decideRoute() async {
+  Future<void> _start() async {
+    // זמן הצגה של הספלש
+    await Future.delayed(const Duration(seconds: 2));
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
@@ -30,8 +35,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
+    return Scaffold(
+      backgroundColor: const Color(0xFF1565C0), // אותו כחול של האפליקציה
+      body: Center(
+        child: Image.asset(
+          'assets/splash/splash_logo.png',
+          width: 220,
+        ),
+      ),
     );
   }
 }

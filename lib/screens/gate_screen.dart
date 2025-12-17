@@ -292,36 +292,41 @@ Future<void> _onOpenGate(String gate) async {
   ),
 
 
-    ..._gates.map((gate) {
-  final label = gateLabels[gate] ?? gate;
+Expanded(
+  child: ListView(
+    padding: const EdgeInsets.only(top: 8),
+    children: _gates.map((gate) {
+      final label = gateLabels[gate] ?? gate;
 
-  return Padding(
-  padding: const EdgeInsets.symmetric(vertical: 8),
-  child: SizedBox(
-    width: double.infinity,
-    child: ElevatedButton(
-      onPressed: _busy ? null : () => _onOpenGate(gate),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1565C0),
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        textStyle: const TextStyle(
-          fontFamily: 'Tahoma',
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _busy ? null : () => _onOpenGate(gate),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: const Color(0xFF1565C0),
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              textStyle: const TextStyle(
+                fontFamily: 'Tahoma',
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              disabledBackgroundColor: Colors.white54,
+              disabledForegroundColor: Colors.blueGrey,
+            ),
+            child: Text(label),
+          ),
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        disabledBackgroundColor: Colors.white54,
-        disabledForegroundColor: Colors.blueGrey,
-      ),
-      child: Text(label),
-    ),
+      );
+    }).toList(),
   ),
-);
+),
 
-}).toList(),
 
   ],
 ),
@@ -337,6 +342,7 @@ Future<void> _onOpenGate(String gate) async {
     body: SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(24),
+
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

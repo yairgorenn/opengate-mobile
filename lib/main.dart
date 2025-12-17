@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
 import 'screens/token_screen.dart';
 import 'screens/gate_screen.dart';
+import 'package:flutter/services.dart';
+
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
   runApp(const OpenGateApp());
 }
 
@@ -27,4 +34,3 @@ class OpenGateApp extends StatelessWidget {
     );
   }
 }
-  

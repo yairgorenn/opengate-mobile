@@ -1,8 +1,8 @@
 const Map<String, String> gateLabels = {
-  "Main": "שער ראשי",
-  "Enter": "כניסה",
-  "Exit": "יציאה",
-  "Gay": "שער גיא",
+  "Main": "קציר ראשי",
+  "Enter": "קציר כניסה",
+  "Exit": "קציר יציאה",
+  "Gay": "קציר גבעה",
   "EinCarmel": "עין כרמל",
   "Almagor": "אלמגור",
 };
